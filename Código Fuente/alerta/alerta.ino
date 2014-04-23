@@ -1,7 +1,7 @@
 
 /*
 Proyecto: Alerta
-RF: RF3
+RF: RF3 
 Descripción: Lectura de la temperatura desde un dispositivo móvil.
 */
 
