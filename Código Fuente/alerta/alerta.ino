@@ -1,9 +1,8 @@
 
 /*
 Proyecto: Alerta
-RF: RF2
-Descripción: Envío de correo electrónico cuando se pasa de un umbral de temperatura.
 RF: RF3
+Descripción: Lectura de la temperatura desde un dispositivo móvil.
 */
 
 #include <OneWire.h>
@@ -11,24 +10,48 @@ RF: RF3
 #include <Temboo.h>
 #include "TembooAccount.h" // contains Temboo account information
 #include "CorreoDestino.h" // Información de cuenta de correo para envío y destinatario.
+#include <YunServer.h>
+#include <YunClient.h>
 
 // Config
 float UMBRAL_TEMPERATURA = 21; // umbral de temperatura en grados centígrados.
+int pinRele = 13; // pin que usamos para manejar el relé.
 OneWire  ds(10);  // en el pin 10 (a 4.7K Ohm resistor is necessary)
+YunServer server;
+float _ultimaTemperaturaValida = -1;   
 
 void setup() {
   // put your setup code here, to run once:
+  pinMode(pinRele, OUTPUT);
+  digitalWrite(pinRele, LOW);
   Bridge.begin();
- 
+  digitalWrite(pinRele, HIGH);
+  server.listenOnLocalhost();
+  server.begin();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 
+  // Get clients coming from server
+  YunClient client = server.accept();
+  
   float _temperaturaActual = getTemperatura();
+
+     // There is a new client?
+  if (client) {
+    // Process request
+       
+    process(client,_ultimaTemperaturaValida);
+
+    // Close connection and free resources.
+    client.stop();
+  }
   if (_temperaturaActual != -1)
   {   
     
+    _ultimaTemperaturaValida = _temperaturaActual;
+      
     Serial.print("Temperatura actual: ");
     Serial.println(_temperaturaActual);
     if (_temperaturaActual < UMBRAL_TEMPERATURA)
@@ -41,6 +64,37 @@ void loop() {
     }
   }
   delay(50);
+}
+
+void process(YunClient client, float temp) {
+  // read the command
+  String command = client.readStringUntil('/');
+  
+  if (command == "temperatura") {
+    svcTemperatura(client,temp);
+  }
+  if (command == "calentador") {
+    svcRele(client);
+  }
+}
+
+void svcTemperatura(YunClient client, float temp) {
+
+  String comando = client.readStringUntil('/');
+  comando.trim();
+  if (comando == "leer") client.println(temp); 
+  if (comando == "umbral") client.println(UMBRAL_TEMPERATURA); 
+
+}
+
+void svcRele(YunClient client) {
+
+  String comando = client.readStringUntil('/');
+  comando.trim();
+  if (comando == "on") digitalWrite(pinRele, HIGH); 
+  if (comando == "off") digitalWrite(pinRele, LOW);  
+  if (comando == "leer") client.println(digitalRead(pinRele));  
+
 }
 
 unsigned int enviarCorreoAviso( float _temperaturaActual ) {
