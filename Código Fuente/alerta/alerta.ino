@@ -167,7 +167,7 @@ float getTemperatura(void) {
   byte type_s;
   byte data[12];
   byte addr[8];
-  float celsius, fahrenheit;
+  float celsius;
     
   if ( !ds.search(addr)) {
     ds.reset_search();
